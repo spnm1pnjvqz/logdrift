@@ -1,73 +1,76 @@
+// Package config loads and validates the logdrift YAML configuration file.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Service represents a single log source to tail.
-type Service struct {
-	Name    string `yaml:"name"`
-	Command string `yaml:"command"`
-	Color   string `yaml:"color"`
+// Source describes a single log source (process or file tail).
+type Source struct {
+	Name    string   `yaml:"name"`
+	Command string   `yaml:"command"`
+	Args    []string `yaml:"args"`
+	File    string   `yaml:"file"`
 }
 
-// Config holds the top-level logdrift configuration.
+// ThrottleConfig holds optional per-run throttle settings.
+type ThrottleConfig struct {
+	LinesPerSec int `yaml:"lines_per_sec"`
+}
+
+// Config is the top-level configuration structure.
 type Config struct {
-	Services []Service `yaml:"services"`
-	DiffMode string    `yaml:"diff_mode"` // "line" or "word"
+	Sources  []Source       `yaml:"sources"`
+	DiffMode string         `yaml:"diff_mode"`
+	Throttle ThrottleConfig `yaml:"throttle"`
 }
 
-// Load reads and parses a YAML config file at the given path.
+// Load reads and validates a Config from the YAML file at path.
 func Load(path string) (*Config, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("config: open %q: %w", path, err)
+		return nil, fmt.Errorf("config: read %s: %w", path, err)
 	}
-	defer f.Close()
-
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("config: decode %q: %w", path, err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("config: parse: %w", err)
 	}
-
-	if err := cfg.validate(); err != nil {
+	if err := validate(&cfg); err != nil {
 		return nil, err
 	}
-
 	return &cfg, nil
 }
 
-// validate checks required fields and sets defaults.
-func (c *Config) validate() error {
-	if len(c.Services) == 0 {
-		return fmt.Errorf("config: at least one service must be defined")
+func validate(cfg *Config) error {
+	if len(cfg.Sources) == 0 {
+		return errors.New("config: at least one source is required")
 	}
-
 	seen := make(map[string]bool)
-	for i, svc := range c.Services {
-		if svc.Name == "" {
-			return fmt.Errorf("config: service[%d] missing name", i)
+	for i, s := range cfg.Sources {
+		if s.Name == "" {
+			return fmt.Errorf("config: source[%d]: name is required", i)
 		}
-		if svc.Command == "" {
-			return fmt.Errorf("config: service %q missing command", svc.Name)
+		if s.Command == "" && s.File == "" {
+			return fmt.Errorf("config: source %q: command or file is required", s.Name)
 		}
-		if seen[svc.Name] {
-			return fmt.Errorf("config: duplicate service name %q", svc.Name)
+		if seen[s.Name] {
+			return fmt.Errorf("config: duplicate source name %q", s.Name)
 		}
-		seen[svc.Name] = true
+		seen[s.Name] = true
 	}
-
-	if c.DiffMode == "" {
-		c.DiffMode = "line"
+	if cfg.DiffMode == "" {
+		cfg.DiffMode = "uniq"
 	}
-	if c.DiffMode != "line" && c.DiffMode != "word" {
-		return fmt.Errorf("config: diff_mode must be \"line\" or \"word\", got %q", c.DiffMode)
+	allowed := map[string]bool{"none": true, "uniq": true, "fuzzy": true}
+	if !allowed[cfg.DiffMode] {
+		return fmt.Errorf("config: unknown diff_mode %q", cfg.DiffMode)
 	}
-
+	if cfg.Throttle.LinesPerSec < 0 {
+		return errors.New("config: throttle.lines_per_sec must be >= 0")
+	}
 	return nil
 }
