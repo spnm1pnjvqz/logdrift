@@ -2,6 +2,7 @@ package sequence
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -46,6 +47,15 @@ func TestStamp_IncrementsCounter(t *testing.T) {
 	}
 	if !strings.Contains(l2.Text, "[#2]") {
 		t.Errorf("expected [#2] in %q", l2.Text)
+	}
+}
+
+func TestStamp_PreservesService(t *testing.T) {
+	s, _ := New("#")
+	original := runner.LogLine{Service: "mysvc", Text: "hello"}
+	stamped := s.Stamp(original)
+	if stamped.Service != original.Service {
+		t.Errorf("expected service %q, got %q", original.Service, stamped.Service)
 	}
 }
 
