@@ -43,6 +43,15 @@ func TestStamp_PrependsPrefix(t *testing.T) {
 	}
 }
 
+func TestStamp_EmptyText_OnlyPrefix(t *testing.T) {
+	in, _ := New(">> ")
+	l := runner.LogLine{Service: "svc", Text: ""}
+	got := in.Stamp(l)
+	if got.Text != ">> " {
+		t.Errorf("got %q, want %q", got.Text, ">> ")
+	}
+}
+
 func TestApply_PrependsToAllLines(t *testing.T) {
 	in, _ := New("\t")
 	lines := []runner.LogLine{
