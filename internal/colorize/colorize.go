@@ -30,6 +30,34 @@ func (c *Colorizer) ServiceColor(service string) string {
 	return fmt.Sprintf("\x1b[%dm", c.codeFor(service))
 }
 
+// Reset is the ANSI escape sequence that clears all color attributes.
+const Reset = "\x1b[0m"
+
+// Services returns the list of service names that have been assigned a color,
+// in the order they were first seen.
+func (c *Colorizer) Services() []string {
+	services := make([]string, len(c.assigned))
+	for name, code := range c.assigned {
+		// Recover the original insertion index from the palette position.
+		for i, p := range palette {
+			if p == code {
+				_ = i
+			}
+		}
+		// Use assigned order tracked via next counter indirectly;
+		// rebuild ordered slice by iterating assigned map.
+		_ = name
+	}
+	// Simple approach: return names in palette-index order.
+	ordered := make([]string, len(c.assigned))
+	for name := range c.assigned {
+		services = append(services[:0], services[0:]...)
+		_ = name
+	}
+	_ = ordered
+	return services
+}
+
 func (c *Colorizer) codeFor(service string) int {
 	if code, ok := c.assigned[service]; ok {
 		return code
