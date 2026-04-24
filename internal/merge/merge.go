@@ -49,3 +49,12 @@ func Merge(ctx context.Context, sources ...<-chan runner.LogLine) (<-chan runner
 
 	return out, nil
 }
+
+// MergeTwo is a convenience wrapper around Merge for exactly two sources.
+// It returns ErrNoSources if either channel is nil.
+func MergeTwo(ctx context.Context, a, b <-chan runner.LogLine) (<-chan runner.LogLine, error) {
+	if a == nil || b == nil {
+		return nil, ErrNoSources
+	}
+	return Merge(ctx, a, b)
+}
