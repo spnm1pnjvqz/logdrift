@@ -58,6 +58,22 @@ func TestStamp_PreservesService(t *testing.T) {
 	}
 }
 
+func TestStamp_OnlyOpen(t *testing.T) {
+	b, _ := New("[", "")
+	got := b.Stamp(makeLine("svc", "hello"))
+	if got.Text != "[hello" {
+		t.Errorf("got %q, want %q", got.Text, "[hello")
+	}
+}
+
+func TestStamp_OnlyClose(t *testing.T) {
+	b, _ := New("", "]")
+	got := b.Stamp(makeLine("svc", "hello"))
+	if got.Text != "hello]" {
+		t.Errorf("got %q, want %q", got.Text, "hello]")
+	}
+}
+
 func TestApply_WrapsAllLines(t *testing.T) {
 	b, _ := New("<", ">")
 	src := makeLineCh(
