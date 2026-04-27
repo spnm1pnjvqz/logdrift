@@ -83,6 +83,28 @@ func TestApply_FlushesOnServiceChange(t *testing.T) {
 	}
 }
 
+func TestApply_FlushesWhenMaxLinesReached(t *testing.T) {
+	// When the number of buffered lines reaches maxLines, the joiner should
+	// emit a joined line and start a new group rather than accumulating further.
+	j, _ := New("-", 2)
+	lines := []runner.LogLine{
+		{Service: "svc", Text: "1"},
+		{Service: "svc", Text: "2"},
+		{Service: "svc", Text: "3"},
+	}
+	ctx := context.Background()
+	results := collect(ctx, j.Apply(ctx, makeLineCh(lines)))
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results after maxLines flush, got %d", len(results))
+	}
+	if results[0].Text != "1-2" {
+		t.Errorf("unexpected first group text: %q", results[0].Text)
+	}
+	if results[1].Text != "3" {
+		t.Errorf("unexpected second group text: %q", results[1].Text)
+	}
+}
+
 func TestApply_Cancel_StopsOutput(t *testing.T) {
 	j, _ := New("-", 2)
 	ch := make(chan runner.LogLine)
